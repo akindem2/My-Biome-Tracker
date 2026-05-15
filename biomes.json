@@ -1,0 +1,114 @@
+[
+	{
+		"name":"NORMAL",
+		"title":"Normal",
+		"asset id":80690294537387,
+		"color":"0xC8DED7",
+		"thumbnail":"https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/windy.png",
+		"everyone":false
+	},
+	{
+		"name":"SNOWY",
+		"title":"Snowy",
+		"asset id":109912975653138,
+		"color":"0xA6FFFF",
+		"thumbnail":"https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/snowy.png",
+		"everyone":false
+	},
+	{
+		"name":"WINDY",
+		"title":"Windy",
+		"asset id":138169499467564,
+		"color":"0x90F6FF",
+		"thumbnail":"https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/windy.png",
+		"everyone":false
+	},
+	{
+		"name":"RAINY",
+		"title":"Rainy",
+		"asset id":137992545432987,
+		"color":"0x4284FF",
+		"thumbnail":"https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/rainy.png",
+		"everyone":false
+	},
+	{
+		"name":"SAND STORM",
+		"title":"Sand Storm",
+		"asset id":102180669654341,
+		"color":"0xFFCB81",
+		"thumbnail":"https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/sand%20storm.png",
+		"everyone":false
+	},
+	{
+		"name":"HELL",
+		"title":"Hell",
+		"asset id":89721298978404,
+		"color":"0x7E1617",
+		"thumbnail":"https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/hell.png",
+		"everyone":false
+	},
+	{
+		"name":"STARFALL",
+		"title":"Starfall",
+		"asset id":110087292131274,
+		"color":"0x6085FF",
+		"thumbnail":"https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/starfall.png",
+		"everyone":false
+	},
+	{
+		"name":"HEAVEN",
+		"title":"Heaven",
+		"asset id":100160513248702,
+		"color":"0xD6A22D",
+		"thumbnail":"https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/heaven.png",
+		"everyone":false
+	},
+	{
+		"name":"CORRUPTION",
+		"title":"Corruption",
+		"asset id":137622939436355,
+		"color":"0x9143FF",
+		"thumbnail":"https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/corruption.png",
+		"everyone":false
+	},
+	{
+		"name":"NULL",
+		"title":"Null",
+		"asset id":120277135407020,
+		"color":"0x3B3B3B",
+		"thumbnail":"https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/null.png",
+		"everyone":false
+	},
+	{
+		"name":"GLITCHED",
+		"title":"Glitched",
+		"asset id":92180140049616,
+		"color":"0x209e2a",
+		"thumbnail":"https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/glitched.png",
+		"everyone":true
+	},
+	{
+		"name":"DREAMSPACE",
+		"title":"Dreamspace",
+		"asset id":124768988619166,
+		"color":"0xEA9DDA",
+		"thumbnail":"https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/dreamspace.png",
+		"everyone":true
+	},
+	{
+		"name":"CYBERSPACE",
+		"title":"Cyberspace",
+		"asset id":89000537898277,
+		"color":"0x1C3266",
+		"thumbnail":"https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/cyberspace.png",
+		"everyone":true
+	},
+	{
+		"name":"SINGULARITY",
+		"title":"Singularity",
+		"asset id":107114559110957,
+		"color":"0xD47111",
+		"thumbnail":"https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/singularity.png",
+		"everyone":false
+	}
+]
