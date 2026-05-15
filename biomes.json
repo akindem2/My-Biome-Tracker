@@ -104,6 +104,14 @@
 		"everyone":true
 	},
 	{
+		"name":"EGGLAND",
+		"title":"Eggland",
+		"asset id":107114559110957,
+		"color":"0xADE64C",
+		"thumbnail":"https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/eggland.png",
+		"everyone":false
+	},
+	{
 		"name":"SINGULARITY",
 		"title":"Singularity",
 		"asset id":107114559110957,
