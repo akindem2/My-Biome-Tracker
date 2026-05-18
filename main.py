@@ -14,6 +14,18 @@ app = ctk.CTk()
 app.geometry("800x250")
 app.title("Biome Scanner")
 
+tabview = ctk.CTkTabview(app)
+tabview.pack(fill="both", expand=True, padx=20, pady=20)
+
+tab1 = tabview.add("Home")
+tab2 = tabview.add("Settings")
+tab3 = tabview.add("Biomes")
+
+role_ids = {}
+
+scroll3 = ctk.CTkScrollableFrame(tab3)
+scroll3.pack(fill="both", expand=True)
+
 app_dir = os.path.join(os.getenv("LOCALAPPDATA"), "My Biome Scanner")
 os.makedirs(app_dir, exist_ok=True)
 file_path = os.path.join(app_dir, "settings.json")
@@ -21,6 +33,8 @@ file_path = os.path.join(app_dir, "settings.json")
 localappdata = os.getenv("LOCALAPPDATA")
 
 biomes_url = "https://raw.githubusercontent.com/akindem2/My-Biome-Tracker/refs/heads/main/biomes.json"
+
+assigned_log = None
 
 size = 0
 
@@ -48,15 +62,24 @@ def toggle():
         send_stop_message()
 
 def save_settings():
+    # Extract role IDs from entry widgets
+    role_ids.clear()
+    for biome in biomes:
+        title = biome["title"]
+        role_ids[title] = role_entries[title].get()
+
     settings = {
         "webhook url": webhook_entry.get(),
         "ps link": ps_entry.get(),
-        "user id": user_entry.get()
+        "user id": user_entry.get(),
+        "role ids": role_ids
     }
+
     with open(file_path, "w", encoding="utf-8") as json_file:
-        json.dump(settings, json_file)
+        json.dump(settings, json_file, indent=4)
 
     print(f"Settings saved to {file_path}")
+
 
 def test_message():
     url = webhook_entry.get()
@@ -143,11 +166,12 @@ def send_stop_message():
 def send_biome_start(biome_title):
     for biome in biomes:
         if biome_title == biome["title"]:
+            content = ""
+            if role_entries[biome["title"]].get():
+                content = f"<@&{role_entries[biome["title"]].get()}>"
             url = webhook_entry.get()
             if biome['everyone'] == True:
                 content = "@everyone"
-            else:
-                content = ""
             data = {
                 "content":content,
                 "embeds": [
@@ -231,10 +255,10 @@ def userid_to_username(user_id):
     print(data.get("name"))
     return data.get("name")
 
-def read_first_3_mb(path):
+def read_first_5_mb(path):
     try:
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            return f.read(3_000_000)  # 3 MB
+            return f.read(5_000_000)  # 5 MB
     except Exception as e:
         print(f"Error reading {path}: {e}")
         return ""
@@ -385,7 +409,7 @@ def identify_log():
     # First pass: find logs that belong to this user + Sol's RNG
     linked_logs = []
     for log_path in logs:
-        data = read_first_3_mb(log_path)
+        data = read_first_5_mb(log_path)
         if username in data and "Sol's RNG" in data:
             print(f"[identify_log] Linked log found: {log_path}")
             linked_logs.append(log_path)
@@ -445,9 +469,6 @@ def process_new_log_text(data):
             pass
                     
 
-                    
-
-
 def scanner_loop():
     global scanning, assigned_log
 
@@ -494,48 +515,98 @@ def scanner_loop():
 #--LABELS
 #------------------------
 
-current_biome_label = ctk.CTkLabel(app, text = "Current Biome: ", font = ("arial", 20))
-current_biome_label.grid(row=1,column=2,padx=20,pady=20)
+current_biome_label = ctk.CTkLabel(tab1, text = "Current Biome: ", font = ("arial", 20))
+current_biome_label.grid(row=0,column=1,padx=20,pady=5)
+
+user_label = ctk.CTkLabel(tab2, text = "Roblox User ID", font = ("arial", 20))
+user_label.grid(row=0,column=2,padx=20,pady=5)
+
+webhook_label = ctk.CTkLabel(tab2, text = "Webhook URL", font = ("arial", 20))
+webhook_label.grid(row=0,column=1,padx=20,pady=5)
+
+ps_label = ctk.CTkLabel(tab2, text = "Private Server Link", font = ("arial", 15))
+ps_label.grid(row=0,column=0,padx=20,pady=5)
+
+role_entries = {}
+
+for index, biome in enumerate(biomes):
+    global indexer
+    biome_label = ctk.CTkLabel(scroll3, text = biome["title"], font = ("arial", 15))
+    biome_label.grid(row=index,column=0,padx=20,pady=5)
+    role_entry = ctk.CTkEntry(scroll3, placeholder_text = "Role ID(optional)", width = 200)
+    role_entry.grid(row=index,column=1,padx=20,pady=5)
+
+    role_entries[biome["title"]] = role_entry
+    
+    indexer = index
 
 #------------------------
 #--ENTRIES
 #------------------------
 
-webhook_entry = ctk.CTkEntry(app, placeholder_text = "Discord Webhook URL", width = 200)
-webhook_entry.grid(row=1,column=0,padx=20,pady=5)
+webhook_entry = ctk.CTkEntry(tab2, placeholder_text = "Discord Webhook URL", width = 200)
+webhook_entry.grid(row=1,column=1,padx=20,pady=5)
 
-ps_entry = ctk.CTkEntry(app, placeholder_text = "Private Server Link", width = 200)
-ps_entry.grid(row=2, column=0,padx=20,pady=20)
+ps_entry = ctk.CTkEntry(tab2, placeholder_text = "Private Server Link", width = 200)
+ps_entry.grid(row=1, column=0,padx=20,pady=5)
 
-user_entry = ctk.CTkEntry(app, placeholder_text = "Roblox User ID", width = 200)
-user_entry.grid(row=2,column=1,padx=20,pady=20)
+user_entry = ctk.CTkEntry(tab2, placeholder_text = "Roblox User ID", width = 200)
+user_entry.grid(row=1,column=2,padx=20,pady=5)
 
 #------------------------
 #--BUTTONS
 #------------------------
 
-toggle_button = ctk.CTkButton(app, text="Start", command = toggle, fg_color = "#009C00", hover_color = "#016e01",width=200,height=50)
+toggle_button = ctk.CTkButton(tab1, text="Start", command = toggle, fg_color = "#009C00", hover_color = "#016e01",width=200,height=50)
 toggle_button.grid(row = 0, column = 0, padx=0, pady=0)
 
-message_button = ctk.CTkButton(app,text="Send Test Message",command = test_message, fg_color = "#009C00", hover_color = "#016e01")
-message_button.grid(row=1,column=1,padx=0,pady=5)
+message_button = ctk.CTkButton(tab2,text="Send Test Message",command = test_message, fg_color = "#009C00", hover_color = "#016e01")
+message_button.grid(row=2,column=1,padx=0,pady=0)
 
-save_button = ctk.CTkButton(app,text="Save Settings", command = save_settings,width=150,height=40)
-save_button.grid(row=3,column=0,padx = 0, pady=0)
+save_button = ctk.CTkButton(tab2, text="Save Settings", command = save_settings,width=150,height=40)
+save_button.grid(row=3,column=1,padx = 0, pady=10)
 
+save_roles = ctk.CTkButton(scroll3, text = "Save Roles", command = save_settings)
+save_roles.grid(row=indexer+1,column=0,padx=0,pady=10)
 
 #------------------------
 #--Creating App and Loading Settings
 #------------------------
 
 def load_settings():
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as file:
-            data = json.load(file)
-            # ctk Entry .insert requires (index, string)
-            webhook_entry.insert(0, data.get("webhook url", ""))
-            ps_entry.insert(0, data.get("ps link", ""))
-            user_entry.insert(0, data.get("user id", ""))
+    if not os.path.exists(file_path):
+        return  # No file yet
+
+    # Read file content first
+    with open(file_path, "r", encoding="utf-8") as file:
+        content = file.read().strip()
+
+    # If file is empty → skip loading
+    if not content:
+        print("settings.json is empty — skipping load.")
+        return
+
+    # Try to parse JSON safely
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError:
+        print("settings.json is corrupted — skipping load.")
+        return
+
+    # Load normal settings
+    webhook_entry.insert(0, data.get("webhook url", ""))
+    ps_entry.insert(0, data.get("ps link", ""))
+    user_entry.insert(0, data.get("user id", ""))
+
+    saved_roles = data.get("role ids", {})
+
+    # Load biome role IDs
+    for biome in biomes:
+        title = biome["title"]
+        if title in saved_roles:
+            role_entries[title].insert(0, saved_roles[title])
+
+            
 
 load_settings()
 app.mainloop()
