@@ -44,6 +44,8 @@ file_path = os.path.join(app_dir, "settings.json")
 
 localappdata = os.getenv("LOCALAPPDATA")
 
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
 biomes_url = "https://raw.githubusercontent.com/akindem2/My-Biome-Tracker/refs/heads/main/biomes.json"
 
 merchants_url = "https://raw.githubusercontent.com/akindem2/My-Biome-Tracker/refs/heads/main/merchants.json"
@@ -203,49 +205,45 @@ def handle_captured_coordinates(coords):
     else:
         result_label.configure(text="Selection Canceled.")
 
-def extract_line_foreground_color(image, ocr_data, word_indices):
+def extract_color_from_bbox(image, x1, y1, x2, y2):
     """
-    Crops ONLY the words belonging to the matched text line, isolates 
-    the text pixels from the background, and returns their average RGB color.
+    Crops the specific bounding box and isolates the text pixels from the 
+    background to return their average RGB color.
     """
     img_width, img_height = image.size
-    text_colors = []
-
-    # Only loop through the specific word indices that matched our target text
-    for i in word_indices:
-        word_text = ocr_data['text'][i].strip()
-        if not word_text:
-            continue
-            
-        x, y = ocr_data['left'][i], ocr_data['top'][i]
-        w, h = ocr_data['width'][i], ocr_data['height'][i]
-        
-        if w <= 0 or h <= 0 or x + w > img_width or y + h > img_height:
-            continue
-            
-        # Crop the specific matched word
-        word_crop = image.crop((x, y, x + w, y + h)).convert("RGB")
-        img_array = np.array(word_crop)
-        
-        # Isolate background using edge pixels
-        edge_pixels = np.concatenate([
-            img_array[0, :, :], img_array[-1, :, :],
-            img_array[:, 0, :], img_array[:, -1, :]
-        ])
-        bg_rgb = np.mean(edge_pixels, axis=0)
-        
-        # Filter out background pixels to find the true text color
-        all_pixels = img_array.reshape(-1, 3)
-        distances_from_bg = np.linalg.norm(all_pixels - bg_rgb, axis=1)
-        text_pixels = all_pixels[distances_from_bg > 40] # Threshold for text vs bg
-        
-        if len(text_pixels) > 0:
-            text_colors.append(np.mean(text_pixels, axis=0))
-
-    if not text_colors:
+    x1, y1 = max(0, x1), max(0, y1)
+    x2, y2 = min(img_width, x2), min(img_height, y2)
+    
+    if x2 <= x1 or y2 <= y1:
+        print("[extract_color_from_bbox] WARNING: Invalid bounding box! Returning (0, 0, 0)")
         return (0, 0, 0)
         
-    return tuple(map(int, np.mean(text_colors, axis=0)))
+    line_crop = image.crop((x1, y1, x2, y2)).convert("RGB")
+    img_array = np.array(line_crop)
+    
+    # Isolate background using edge pixels. Use median to prevent text touching edges from skewing it.
+    edge_pixels = np.concatenate([
+        img_array[0, :, :], img_array[-1, :, :],
+        img_array[:, 0, :], img_array[:, -1, :]
+    ])
+    bg_rgb = np.median(edge_pixels, axis=0)
+    
+    # Filter out background pixels to find the true text color
+    all_pixels = img_array.reshape(-1, 3)
+    distances_from_bg = np.linalg.norm(all_pixels - bg_rgb, axis=1)
+    
+    # Pick the "correct coordinates" by finding the pixels FURTHEST from the background.
+    if len(distances_from_bg) > 0:
+        max_dist = np.max(distances_from_bg)
+        if max_dist > 30: # Ensure there is actual text visible against the background
+            # Sample the multiple coordinates in the area that represent the PURE text color
+            pure_text_pixels = all_pixels[distances_from_bg > max_dist * 0.85]
+            detected_color = tuple(map(int, np.mean(pure_text_pixels, axis=0)))
+            print(f"[extract_color_from_bbox] Successfully isolated text color: {detected_color}")
+            return detected_color
+
+    print("[extract_color_from_bbox] WARNING: No foreground text pixels isolated from background! Returning (0, 0, 0)")
+    return (0, 0, 0)
 
 
 def analyze_specific_text_and_color(image_input, target_statement, target_rgb):
@@ -287,7 +285,7 @@ def analyze_specific_text_and_color(image_input, target_statement, target_rgb):
 
     # 3. Use RapidFuzz to find which reconstructed line matches our target statement best
     line_strings = list(reconstructed_lines.values())
-    best_match_result = process.extractOne(target_statement, line_strings, scorer=fuzz.WRATIO)
+    best_match_result = process.extractOne(target_statement, line_strings, scorer=fuzz.partial_ratio)
     
     if not best_match_result:
         return 0.0, 0.0, "No match found", (0, 0, 0)
@@ -299,7 +297,11 @@ def analyze_specific_text_and_color(image_input, target_statement, target_rgb):
     matched_word_indices = lines_dict[best_line_key]["indices"]
     
     # 4. Extract color ONLY from the words in that winning line
-    detected_rgb = extract_line_foreground_color(image_input, ocr_data, matched_word_indices)
+    min_x = min([ocr_data['left'][i] for i in matched_word_indices])
+    min_y = min([ocr_data['top'][i] for i in matched_word_indices])
+    max_x = max([ocr_data['left'][i] + ocr_data['width'][i] for i in matched_word_indices])
+    max_y = max([ocr_data['top'][i] + ocr_data['height'][i] for i in matched_word_indices])
+    detected_rgb = extract_color_from_bbox(image_input, min_x, min_y, max_x, max_y)
     
     # 5. Calculate Color Similarity Score (Euclidean Distance mapped to 0-100%)
     r1, g1, b1 = detected_rgb
@@ -489,20 +491,34 @@ def send_biome_stop(biome_title):
 def send_merchant_spawn(merchant_name, image = None):
     for merchant in merchants:
         if merchant_name == merchant["name"]:
+            
+            # --- CONVERT RGB STRING TO DISCORD COLOR ---
+            color_str = merchant["color"].replace("(", "").replace(")", "")
+            r, g, b = map(int, color_str.split(","))
+            discord_color = (r << 16) + (g << 8) + b 
+            # -------------------------------------------
+
             content = ""
+            # Fixed nested quote issue here (changed "name" to 'name'):
             if merchant["name"] in merchant_entries and merchant_entries[merchant["name"]].get():
-                content = f"<@&{merchant_entries[merchant["name"]].get()}>"
-            url = merchant_wb_entry.get()
+                content = f"<@&{merchant_entries[merchant['name']].get()}>"
+                
+            if merchant_wb_entry.get():
+                url = merchant_wb_entry.get()
+            else:
+                url = webhook_entry.get()
+            
             if not url: return
+            
             data = {
-                "content":content,
+                "content": content,
                 "embeds": [
                     {
                         "title": f"{merchant['name']} Spawned!",
-                        "color": int(merchant['color'], 16),
+                        "color": discord_color, # <--- Updated to use converted color
                         "thumbnail": {
                             "url": merchant['thumbnail']
-                            },
+                        },
                         "fields": [
                             {
                                 "name": "Username",
@@ -525,13 +541,30 @@ def send_merchant_spawn(merchant_name, image = None):
             }
 
             if image:
-                data["embeds"][0]["image"] = {
-                    "url": image
-                }
-            result = requests.post(url, json = data)
+                if isinstance(image, str):
+                    data["embeds"][0]["image"] = {
+                        "url": image
+                    }
+                    result = requests.post(url, json=data)
+                else:
+                    # It's a PIL Image object
+                    import io
+                    img_byte_arr = io.BytesIO()
+                    image.save(img_byte_arr, format='PNG')
+                    img_byte_arr.seek(0)
+                    
+                    data["embeds"][0]["image"] = {
+                        "url": "attachment://screenshot.png"
+                    }
+                    # Discord requires multipart/form-data for files + JSON payload
+                    result = requests.post(url, data={"payload_json": json.dumps(data)}, files={"screenshot.png": img_byte_arr})
+            else:
+                result = requests.post(url, json = data)
 
-            if result.status_code == 204: print("Message Sent!")
-            else: print(f"Failed: {result.status_code}, {result.text}")
+            if result.status_code == 204: 
+                print("Message Sent!")
+            else: 
+                print(f"Failed: {result.status_code}, {result.text}")
 
 #------------------------
 #--HELPERS
@@ -770,7 +803,7 @@ def process_new_log_text(data):
     for line in lines:
         for merchant in merchants:
             if merchant_method == "log":
-                if merchant["asset id"] in line:
+                if str(merchant["asset id"]) in line:
                     send_merchant_spawn(merchant["name"])
                     print(f"Merchant Spawned: {merchant['title']}")
         for biome in biomes:
@@ -828,13 +861,15 @@ def scanner_loop():
 
 def merchant_loop():
     global scanning, chat_box_coords
-    print(f"Merchant loop started with method: {merchant_method}")
+    print(f"[merchant_loop] Merchant loop started with method: {merchant_method}")
     if merchant_method != "ocr":
         return
 
     if chat_box_coords is None:
         print("[merchant_loop] OCR method selected but no chat box coordinates captured. Please align chat box.")
         return
+
+    print(f"[merchant_loop] OCR detection started using chat box coords: {chat_box_coords}")
 
     # Keep track of last spawn notification time for each merchant to avoid duplicate notifications
     last_spawn_time = {} # merchant_name -> timestamp
@@ -852,21 +887,32 @@ def merchant_loop():
             
             # Group Tesseract words into unique lines based on layout IDs
             lines_dict = {}
+            raw_words = []
             for i in range(len(ocr_data['text'])):
                 word = ocr_data['text'][i].strip()
                 if not word:
                     continue
+                raw_words.append(word)
                 line_key = (ocr_data['block_num'][i], ocr_data['par_num'][i], ocr_data['line_num'][i])
                 if line_key not in lines_dict:
                     lines_dict[line_key] = {"text_list": [], "indices": []}
                 lines_dict[line_key]["text_list"].append(word)
                 lines_dict[line_key]["indices"].append(i)
             
+            if raw_words:
+                print(f"[merchant_loop] OCR detected {len(raw_words)} words: {raw_words}")
+            else:
+                print(f"[merchant_loop] OCR detected 0 words in the current region.")
+            
             reconstructed_lines = {}
             for key, data in lines_dict.items():
                 reconstructed_lines[key] = " ".join(data["text_list"])
             
             if reconstructed_lines:
+                print(f"[merchant_loop] Reconstructed {len(reconstructed_lines)} lines:")
+                for key, data in reconstructed_lines.items():
+                    print(f"  - Line {key}: '{data}'")
+                
                 line_strings = list(reconstructed_lines.values())
                 
                 # Check each merchant
@@ -879,9 +925,13 @@ def merchant_loop():
                     target_rgb = tuple(map(int, color_str.replace("(", "").replace(")", "").split(",")))
                     
                     # Find if any reconstructed line matches this merchant's message
-                    best_match_result = process.extractOne(target_message, line_strings, scorer=fuzz.WRATIO)
+                    best_match_result = process.extractOne(target_message, line_strings, scorer=fuzz.partial_ratio)
                     if best_match_result:
                         matched_text, text_score, matched_index = best_match_result
+                        
+                        # Print partial matches to help debug why text similarity might be lower than expected
+                        if text_score > 30:
+                            print(f"[merchant_loop] Comparing '{name}': Target='{target_message}' vs BestMatch='{matched_text}' (Score: {text_score:.1f}%)")
                         
                         # Check text similarity (threshold 85%)
                         if text_score > 85:
@@ -889,7 +939,21 @@ def merchant_loop():
                             best_line_key = list(reconstructed_lines.keys())[matched_index]
                             matched_word_indices = lines_dict[best_line_key]["indices"]
                             
-                            detected_rgb = extract_line_foreground_color(cropped_image, ocr_data, matched_word_indices)
+                            # Extract coordinates of the matched text
+                            min_x = min([ocr_data['left'][i] for i in matched_word_indices])
+                            min_y = min([ocr_data['top'][i] for i in matched_word_indices])
+                            max_x = max([ocr_data['left'][i] + ocr_data['width'][i] for i in matched_word_indices])
+                            max_y = max([ocr_data['top'][i] + ocr_data['height'][i] for i in matched_word_indices])
+                            
+                            abs_x1 = chat_box_coords[0] + min_x
+                            abs_y1 = chat_box_coords[1] + min_y
+                            abs_x2 = chat_box_coords[0] + max_x
+                            abs_y2 = chat_box_coords[1] + max_y
+                            
+                            print(f"[merchant_loop] Matched text screen coordinates: ({abs_x1}, {abs_y1}) to ({abs_x2}, {abs_y2})")
+                            
+                            detected_rgb = extract_color_from_bbox(cropped_image, min_x, min_y, max_x, max_y)
+                            print(f"[merchant_loop] Text matched for '{name}' (Score: {text_score:.1f}%). Extracted color: {detected_rgb} (Target: {target_rgb})")
                             
                             # Calculate Color Similarity Score
                             r1, g1, b1 = detected_rgb
@@ -897,6 +961,7 @@ def merchant_loop():
                             distance = np.sqrt((r1 - r2)**2 + (g1 - g2)**2 + (b1 - b2)**2)
                             max_distance = 441.673 # Max distance in 3D RGB space
                             color_score = (1.0 - (distance / max_distance)) * 100
+                            print(f"[merchant_loop] Color similarity for '{name}': {color_score:.1f}% (Required: > 80%)")
                             
                             # If both text and color match well
                             if color_score > 80:
@@ -904,11 +969,16 @@ def merchant_loop():
                                 # Cooldown of 20 minutes (1200 seconds) to prevent spamming
                                 if name not in last_spawn_time or (current_time - last_spawn_time[name]) > 1200:
                                     last_spawn_time[name] = current_time
-                                    print(f"[merchant_loop] OCR Match! {name} detected. Text match: {text_score:.1f}%, Color match: {color_score:.1f}%")
-                                    send_merchant_spawn(name)
+                                    print(f"[merchant_loop] OCR MATCH SUCCESS! {name} detected. Text match: {text_score:.1f}%, Color match: {color_score:.1f}%")
+                                    send_merchant_spawn(name, image=cropped_image)
+                                else:
+                                    remaining = 1200 - (current_time - last_spawn_time[name])
+                                    print(f"[merchant_loop] OCR Match! '{name}' detected but skipped due to active cooldown ({remaining:.0f}s left)")
                                     
         except Exception as e:
-            print("[merchant_loop] ERROR:", e)
+            import traceback
+            print("[merchant_loop] ERROR encountered during OCR loop:", e)
+            traceback.print_exc()
             
         time.sleep(2.0)
 
