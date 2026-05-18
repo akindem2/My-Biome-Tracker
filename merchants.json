@@ -1,0 +1,23 @@
+[
+    {
+        "name": "Rin",
+        "asset id": 97148159887178,
+        "color": "(246, 132, 66)",
+        "message": "[Merchant]: Rin has arrived on the island!!",
+        "thumbnail": "https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/rin.png"
+    },
+    {
+        "name": "Mari",
+        "asset id": 18247165978,
+        "color": "(243, 243, 244)",
+        "message": "[Merchant]: Mari has arrived on the island...",
+        "thumbnail": "https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/mari.png"
+    },
+    {
+        "name": "Jester",
+        "asset id": 18247420806,
+        "color": "(154, 77, 241)",
+        "message": "[Merchant]: Jester has arrived on the island!!",
+        "thumbnail": "https://raw.githubusercontent.com/akindem2/Yes-Biome-Scanner/refs/heads/main/icons/jester.png"
+    }
+]

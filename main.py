@@ -20,6 +20,7 @@ tabview.pack(fill="both", expand=True, padx=20, pady=20)
 tab1 = tabview.add("Home")
 tab2 = tabview.add("Settings")
 tab3 = tabview.add("Biomes")
+tab4 = tabview.add("Merchants")
 
 role_ids = {}
 
@@ -33,6 +34,8 @@ file_path = os.path.join(app_dir, "settings.json")
 localappdata = os.getenv("LOCALAPPDATA")
 
 biomes_url = "https://raw.githubusercontent.com/akindem2/My-Biome-Tracker/refs/heads/main/biomes.json"
+
+
 
 assigned_log = None
 
